@@ -1,8 +1,7 @@
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, DateTime, Enum, Index
+from sqlalchemy import Column, String, DateTime, Enum, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
@@ -27,11 +26,17 @@ class Booking(Base):
         default=BookingStatus.pending,
         index=True,
     )
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+
     updated_at = Column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
 
