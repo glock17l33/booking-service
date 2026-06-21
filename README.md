@@ -67,7 +67,9 @@ docker-compose up --build
 ```bash
 curl -X POST http://localhost:8000/bookings \
   -H "Content-Type: application/json" \
-  -d "{\"name\": \"Ivan Petrov\", \"datetime\": \"2025-12-01T10:00:00Z\", \"service_type\": \"consultation\"}"
+  -d "{\"name\": \"Ivan Petrov\", 
+  \"datetime\": \"2025-12-01T10:00:00Z\", 
+  \"service_type\": \"consultation\"}"
 ```
 
 **Ответ (201 Created):**
