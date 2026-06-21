@@ -15,11 +15,14 @@ BOOKING_PAYLOAD = {
 
 
 def create_booking(client, payload=None):
-    """Создаёт бронь через API с замокированным Celery."""
+    """Создаёт бронь через API с замокированными Celery и Redis."""
     if payload is None:
         payload = BOOKING_PAYLOAD.copy()
 
-    with patch("app.tasks.confirm_booking.apply_async"):
+    with (
+        patch("app.tasks.confirm_booking.apply_async"),
+        patch("redis.from_url", side_effect=Exception("Redis unavailable")),
+    ):
         resp = client.post("/bookings", json=payload)
 
     return resp
@@ -45,7 +48,6 @@ class TestCreateBooking:
         resp = create_booking(client)
         booking_id = resp.json()["id"]
 
-        # Не бросает исключение — значит UUID валиден.
         uuid.UUID(booking_id)
 
     def test_create_booking_missing_name(self, client):
