@@ -1,13 +1,19 @@
+"""Эндпоинты API бронирования."""
+
 import math
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.booking import Booking, BookingStatus
-from app.schemas.booking import BookingCreate, BookingListResponse, BookingResponse
+from app.schemas.booking import (
+    BookingCreate,
+    BookingListResponse,
+    BookingResponse
+)
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -23,26 +29,25 @@ def create_booking(
     request: Request,
     db: Session = Depends(get_db),
 ) -> BookingResponse:
-    """
-    Создаёт новую бронь со статусом **pending** и ставит задачу в очередь Celery.
-    """
-    # Импортируем здесь, чтобы задача была доступна
+    """Создаёт новую бронь со статусом **pending** и ставит задачу в Celery."""
+    # Импортируем здесь, чтобы задача была доступна.
     from app.tasks import confirm_booking
 
     booking = Booking(
         name=payload.name,
-        datetime=payload.datetime,
+        booking_datetime=payload.datetime,
         service_type=payload.service_type,
-        status=BookingStatus.pending,
+        status=BookingStatus.PENDING,
     )
     db.add(booking)
     db.commit()
     db.refresh(booking)
 
-    # Отправляем задачу в Celery (асинхронно)
+    # Отправляем задачу в Celery (асинхронно).
     confirm_booking.apply_async(
         args=[str(booking.id)],
-        task_id=f"confirm-{booking.id}",  # детерминированный task_id для идемпотентности
+        # Детерминированный task_id для идемпотентности.
+        task_id=f"confirm-{booking.id}",
     )
 
     return booking  # type: ignore[return-value]
@@ -59,9 +64,7 @@ def list_bookings(
     page_size: int = Query(20, ge=1, le=100, description="Размер страницы"),
     db: Session = Depends(get_db),
 ) -> BookingListResponse:
-    """
-    Возвращает список броней с опциональным фильтром по статусу и пагинацией.
-    """
+    """Возвращает список броней с фильтром по статусу и пагинацией."""
     query = db.query(Booking)
 
     if status_filter is not None:
@@ -91,16 +94,20 @@ def list_bookings(
     response_model=BookingResponse,
     summary="Получить бронь по ID",
 )
-def get_booking(booking_id: UUID, db: Session = Depends(get_db)) -> BookingResponse:
-    """
-    Возвращает бронь по UUID. Статус: **pending** / **confirmed** / **failed**.
-    """
+def get_booking(
+    booking_id: UUID,
+    db: Session = Depends(get_db),
+) -> BookingResponse:
+    """Возвращает бронь по UUID. Статус:
+    **pending** / **confirmed** / **failed**."""
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
+
     if booking is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Booking {booking_id} not found",
         )
+
     return booking  # type: ignore[return-value]
 
 
@@ -109,20 +116,27 @@ def get_booking(booking_id: UUID, db: Session = Depends(get_db)) -> BookingRespo
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Отменить бронь",
 )
-def delete_booking(booking_id: UUID, db: Session = Depends(get_db)) -> None:
-    """
-    Отменяет бронь. Разрешено только для статуса **pending**.
-    """
+def delete_booking(
+    booking_id: UUID,
+    db: Session = Depends(get_db),
+) -> None:
+    """Отменяет бронь. Разрешено только для статуса **pending**."""
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
+
     if booking is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Booking {booking_id} not found",
         )
-    if booking.status != BookingStatus.pending:
+
+    if booking.status != BookingStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot cancel booking with status '{booking.status.value}'. Only 'pending' bookings can be cancelled.",
+            detail=(
+                f"Cannot cancel booking with status '{booking.status.value}'. "
+                f"Only 'pending' bookings can be cancelled."
+            ),
         )
+
     db.delete(booking)
     db.commit()

@@ -1,37 +1,50 @@
+"""Модель бронирования."""
+
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, DateTime, Enum, Index
+from sqlalchemy import Column, DateTime, Enum, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
 
 
 class BookingStatus(str, PyEnum):
-    pending = "pending"
-    confirmed = "confirmed"
-    failed = "failed"
+    """Возможные состояния бронирования в течение жизненного цикла."""
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
 
 
 class Booking(Base):
+    """Представляет единичное бронирование услуги."""
+
     __tablename__ = "bookings"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    datetime = Column(DateTime(timezone=True), nullable=False)
+    booking_datetime = Column(
+        "datetime",
+        DateTime(timezone=True),
+        nullable=False,
+    )
     service_type = Column(String(100), nullable=False)
     status = Column(
         Enum(BookingStatus),
         nullable=False,
-        default=BookingStatus.pending,
+        default=BookingStatus.PENDING,
         index=True,
     )
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
     updated_at = Column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
 

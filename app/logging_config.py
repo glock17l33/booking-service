@@ -4,7 +4,6 @@ Structured JSON logging.
 """
 import logging
 import sys
-from typing import Any
 
 import json_log_formatter
 

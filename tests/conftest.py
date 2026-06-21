@@ -11,17 +11,19 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
-from app.main import app
 
-# SQLite :memory: — быстро, без внешних зависимостей
-SQLITE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
-    SQLITE_URL,
+    "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+TestingSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -45,9 +47,14 @@ def db_session():
 @pytest.fixture(scope="function")
 def client(db_session):
     """
-    FastAPI TestClient с подменённой БД и отключённым Celery.
-    Celery.apply_async мокируется через monkeypatch в каждом тесте.
+    FastAPI TestClient с подменённой БД и отключённым lifespan.
     """
+    # Подменяем engine в модуле database ДО импорта app
+    import app.database as database_module
+    database_module.engine = engine
+
+    # Теперь импортируем app
+    from app.main import app
 
     def override_get_db():
         try:
